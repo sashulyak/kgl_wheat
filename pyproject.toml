@@ -8,6 +8,9 @@ license = "MIT"
 [tool.poetry.dependencies]
 python = "^3.7"
 kaggle = "^1.5.6"
+tensorflow = "^2.2.0"
+scikit-learn = "^0.23.1"
+pandas = "^1.0.4"
 
 [tool.poetry.dev-dependencies]
 
