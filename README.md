@@ -16,3 +16,5 @@ poetry install
 poetry run kaggle competitions download -c global-wheat-detection -p ./data
 unzip ./data/global-wheat-detection.zip -d ./data
 ```
+
+EfficientDet implementation by [kamauz](https://github.com/kamauz/EfficientDet).
