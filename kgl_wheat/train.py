@@ -6,7 +6,10 @@ import pandas as pd
 import tensorflow as tf
 from sklearn.model_selection import GroupShuffleSplit
 
-import config
+from kgl_wheat import config
+from kgl_wheat.dataset import get_dataset
+from kgl_wheat.efficientdet.model import efficientdet
+from kgl_wheat.efficientdet.losses import smooth_l1, focal
 
 
 def read_train_csv(train_csv_path: str, train_images_dir: str):
@@ -56,6 +59,41 @@ if __name__ == '__main__':
             train_size=config.TRAIN_SIZE
         )
 
-    print(len(image_paths))
-    print(len(train_image_paths))
-    print(len(val_image_paths))
+    train_dataset = get_dataset(
+        image_paths=train_image_paths,
+        bboxes=train_image_bboxes
+    )
+
+    val_dataset = get_dataset(
+        image_paths=val_image_paths,
+        bboxes=val_image_bboxes
+    )
+
+    model, prediction_model = efficientdet(
+        num_classes=1,
+        weighted_bifpn=True,
+        freeze_bn=True,
+        score_threshold=0.7
+    )
+
+    model.load_weights(config.WEIGHTS_PATH, by_name=True)
+
+    for i in range(1, [227, 329, 329, 374, 464, 566, 656][4]):
+        model.layers[i].trainable = False
+
+    model.compile(
+        optimizer=Adam(lr=1e-3),
+        loss={
+            'regression': smooth_l1(),
+            'classification': focal()
+        }
+    )
+
+    model.fit(
+        x=train_dataset,
+        epochs=20
+    )
+
+    # print(len(image_paths))
+    # print(len(train_image_paths))
+    # print(len(val_image_paths))

@@ -74,7 +74,7 @@ def init_keras_custom_objects():
 
 def init_tfkeras_custom_objects():
     import tensorflow.keras as tfkeras
-    import efficientnet as model
+    from kgl_wheat.efficientdet import efficientnet as model
 
     custom_objects = {
         'swish': inject_tfkeras_modules(model.get_swish)(),

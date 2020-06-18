@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "A solution of Global Wheat Detection challenge."
 authors = ["Alexander Konshin <sashulya.konshin@gmail.com>"]
 license = "Apache License, Version 2.0 http://www.apache.org/licenses/LICENSE-2.0"
+packages = [{ include = "kgl_wheat" }]
 
 [tool.poetry.dependencies]
 python = "^3.7"
@@ -11,6 +12,8 @@ kaggle = "^1.5.6"
 tensorflow = "^2.2.0"
 scikit-learn = "^0.23.1"
 pandas = "^1.0.4"
+opencv-python = "^4.2.0"
+keras-applications = "^1.0.8"
 
 [tool.poetry.dev-dependencies]
 

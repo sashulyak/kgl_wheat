@@ -6,15 +6,16 @@ from tensorflow.keras import layers
 from tensorflow.keras import initializers
 from tensorflow.keras import models
 
-from utils import inject_tfkeras_modules, init_tfkeras_custom_objects
-import efficientnet as model
+from kgl_wheat.efficientdet.utils import inject_tfkeras_modules, init_tfkeras_custom_objects
+from kgl_wheat.efficientdet import efficientnet as model
+from kgl_wheat.efficientdet.layers import ClipBoxes, RegressBoxes, FilterDetections, wBiFPNAdd, BatchNormalization
+from kgl_wheat.efficientdet.initializers import PriorProbability
+from kgl_wheat.efficientdet.anchors import anchors_for_shape
+
+
 EfficientNetB4 = inject_tfkeras_modules(model.EfficientNetB4)
 preprocess_input = inject_tfkeras_modules(model.preprocess_input)
 init_tfkeras_custom_objects()
-
-from layers import ClipBoxes, RegressBoxes, FilterDetections, wBiFPNAdd, BatchNormalization
-from initializers import PriorProbability
-from anchors import anchors_for_shape
 
 
 MOMENTUM = 0.997
