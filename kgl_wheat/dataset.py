@@ -56,9 +56,9 @@ def get_dataset(image_paths: List[str], bboxes: List[List[int]]) -> tf.data.Data
     :param train_faces_dir: path to directory where face crops are stored
     :return: Tensorflow dataset
     """
-    paths_tensor = tf.constant(image_paths)
-    bboxes_tensor = tf.constant(bboxes)
-    dataset = tf.data.Dataset.from_tensor_slices((paths_tensor, labels_tensor))
+    paths_datasert = tf.data.Dataset.from_tensor_slices(image_paths)
+    bboxes_dataset = tf.data.Dataset.from_tensor_slices(bboxes)
+    dataset = tf.data.Dataset.zip((paths_datasert, bboxes_dataset))
     dataset = dataset.map(read_image_and_convert_bbox, num_parallel_calls=tf.data.experimental.AUTOTUNE)
     dataset = dataset.batch(config.BATCH_SIZE)
     dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
