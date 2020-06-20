@@ -1,5 +1,6 @@
 from typing import List, Tuple
 
+import numpy as np
 import tensorflow as tf
 
 import config
@@ -48,16 +49,21 @@ def read_image_and_convert_bbox(file_path: tf.Tensor, bbox: tf.Tensor) -> Tuple[
     return img, bbox
 
 
-def get_dataset(image_paths: List[str], bboxes: List[List[int]]) -> tf.data.Dataset:
+def get_dataset(image_paths: List[str], bboxes: List[List[int]], max_bboxes: int) -> tf.data.Dataset:
     """
     Create Tensorflow dataset consisted of face crop/label pairs.
 
-    :param metadata_path: path to metadata file which stores information about cropped faces
-    :param train_faces_dir: path to directory where face crops are stored
+    :param image_paths: image paths
+    :param bboxes: bboxes of the detected objects
+    :param max_bboxes: max bboxes per image
     :return: Tensorflow dataset
     """
+    bboxes_padded = np.zeros(shape=(len(bboxes), max_bboxes, 4), dtype=np.int32)
+    for i, image_bboxes in enumerate(bboxes):
+        for j, bbox in enumerate(image_bboxes):
+            bboxes_padded[i, j] = bbox
     paths_datasert = tf.data.Dataset.from_tensor_slices(image_paths)
-    bboxes_dataset = tf.data.Dataset.from_tensor_slices(bboxes)
+    bboxes_dataset = tf.data.Dataset.from_tensor_slices(bboxes_padded)
     dataset = tf.data.Dataset.zip((paths_datasert, bboxes_dataset))
     dataset = dataset.map(read_image_and_convert_bbox, num_parallel_calls=tf.data.experimental.AUTOTUNE)
     dataset = dataset.batch(config.BATCH_SIZE)

@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 
 import numpy as np
@@ -41,6 +42,14 @@ def get_train_val_split(image_paths, image_bboxes, image_sources, seed, train_si
     return train_image_paths, train_image_bboxes, val_image_paths, val_image_bboxes
 
 
+def get_max_bboxes(image_bboxes):
+    max_bboxes = 0
+    for bboxes in image_bboxes:
+        if len(bboxes) > max_bboxes:
+            max_bboxes = len(bboxes)
+    return max_bboxes
+
+
 if __name__ == '__main__':
     tf.random.set_seed(22)
     np.random.seed(22)
@@ -49,6 +58,9 @@ if __name__ == '__main__':
         train_csv_path=config.TRAIN_LABELS_FILE,
         train_images_dir=config.TRAIN_IMAGES_DIR
     )
+
+    max_bboxes = get_max_bboxes(image_bboxes)
+    print(f'Max bboxes: {max_bboxes}')
 
     train_image_paths, train_image_bboxes, val_image_paths, val_image_bboxes = \
         get_train_val_split(
@@ -61,12 +73,14 @@ if __name__ == '__main__':
 
     train_dataset = get_dataset(
         image_paths=train_image_paths,
-        bboxes=train_image_bboxes
+        bboxes=train_image_bboxes,
+        max_bboxes=max_bboxes
     )
 
     val_dataset = get_dataset(
         image_paths=val_image_paths,
-        bboxes=val_image_bboxes
+        bboxes=val_image_bboxes,
+        max_bboxes=max_bboxes
     )
 
     model, prediction_model = efficientdet(
