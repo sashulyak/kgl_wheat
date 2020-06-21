@@ -12,5 +12,6 @@ WEIGHTS_PATH = os.path.join(
 )
 
 IMAGE_SIZE = 1024
+BATCH_SIZE = 1
 TRAIN_SIZE = 0.9
 SEED = 42

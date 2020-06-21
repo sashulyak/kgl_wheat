@@ -96,7 +96,7 @@ if __name__ == '__main__':
         model.layers[i].trainable = False
 
     model.compile(
-        optimizer=Adam(lr=1e-3),
+        optimizer=tf.keras.optimizers.Adam(lr=1e-3),
         loss={
             'regression': smooth_l1(),
             'classification': focal()

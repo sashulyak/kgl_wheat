@@ -30,9 +30,7 @@ def convert_bbox(bbox: tf.Tensor) -> tf.Tensor:
     :param bbox: input bbox
     :return: converted bbox
     """
-    bbox[2] = bbox[0] + bbox[2]
-    bbox[3] = bbox[1] + bbox[3]
-    return bbox
+    return tf.stack([bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]])
 
 
 def read_image_and_convert_bbox(file_path: tf.Tensor, bbox: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor]:
