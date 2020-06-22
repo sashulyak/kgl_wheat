@@ -33,18 +33,23 @@ def convert_bbox(bbox: tf.Tensor) -> tf.Tensor:
     return tf.stack([bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]])
 
 
-def read_image_and_convert_bbox(file_path: tf.Tensor, bbox: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor]:
+def read_image_and_convert_bbox(
+    file_path: tf.Tensor,
+    bboxes: tf.Tensor,
+    bbox_classes: tf.Tensor
+) -> Tuple[tf.Tensor, tf.Tensor]:
     """
     Read and preprocess image to 3D float Tensor. And convert bbox.
 
     :param file_path: path to face crop file
-    :param bbox: corresponded bounding box Tensor
+    :param bboxes: corresponded bounding box Tensor
     :return: pair of preprocessed image Tensor and corresponded label Tensor
     """
     img = tf.io.read_file(file_path)
     img = decode_img(img)
-    label = convert_bbox(bbox)
-    return img, bbox
+    bbox_converted = tf.map_fn(convert_bbox, bboxes)
+    label = tf.concat([bbox_converted, bbox_classes], axes=1)
+    return img, label
 
 
 def get_dataset(image_paths: List[str], bboxes: List[List[int]], max_bboxes: int) -> tf.data.Dataset:
@@ -57,13 +62,16 @@ def get_dataset(image_paths: List[str], bboxes: List[List[int]], max_bboxes: int
     :return: Tensorflow dataset
     """
     bboxes_padded = np.zeros(shape=(len(bboxes), max_bboxes, 4), dtype=np.int32)
+    classes = np.zeros(shape=(len(bboxes), max_bboxes), dtype=np.int32)
     for i, image_bboxes in enumerate(bboxes):
         for j, bbox in enumerate(image_bboxes):
             bboxes_padded[i, j] = bbox
+            classes[i, j] = 1
     paths_datasert = tf.data.Dataset.from_tensor_slices(image_paths)
     bboxes_dataset = tf.data.Dataset.from_tensor_slices(bboxes_padded)
-    dataset = tf.data.Dataset.zip((paths_datasert, bboxes_dataset))
-    dataset = dataset.map(read_image_and_convert_bbox, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    classes_dataset = tf.data.Dataset.from_tensor_slices(classes)
+    dataset = tf.data.Dataset.zip((paths_datasert, bboxes_dataset, classes_dataset))
+    dataset = dataset.map(read_image_and_convert_bboxes, num_parallel_calls=tf.data.experimental.AUTOTUNE)
     dataset = dataset.batch(config.BATCH_SIZE)
     dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
     return dataset
