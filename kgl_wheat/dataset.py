@@ -33,7 +33,7 @@ def convert_bbox(bbox: tf.Tensor) -> tf.Tensor:
     return tf.stack([bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]])
 
 
-def read_image_and_convert_bbox(
+def read_image_and_convert_bboxes(
     file_path: tf.Tensor,
     bboxes: tf.Tensor,
     bbox_classes: tf.Tensor
@@ -47,8 +47,8 @@ def read_image_and_convert_bbox(
     """
     img = tf.io.read_file(file_path)
     img = decode_img(img)
-    bbox_converted = tf.map_fn(convert_bbox, bboxes)
-    label = tf.concat([bbox_converted, bbox_classes], axes=1)
+    bboxes_converted = tf.map_fn(convert_bbox, bboxes)
+    label = tf.concat([bboxes_converted, bbox_classes], axis=1)
     return img, label
 
 
@@ -62,11 +62,11 @@ def get_dataset(image_paths: List[str], bboxes: List[List[int]], max_bboxes: int
     :return: Tensorflow dataset
     """
     bboxes_padded = np.zeros(shape=(len(bboxes), max_bboxes, 4), dtype=np.int32)
-    classes = np.zeros(shape=(len(bboxes), max_bboxes), dtype=np.int32)
+    classes = np.zeros(shape=(len(bboxes), max_bboxes, 1), dtype=np.int32)
     for i, image_bboxes in enumerate(bboxes):
         for j, bbox in enumerate(image_bboxes):
             bboxes_padded[i, j] = bbox
-            classes[i, j] = 1
+            classes[i, j, 0] = 1
     paths_datasert = tf.data.Dataset.from_tensor_slices(image_paths)
     bboxes_dataset = tf.data.Dataset.from_tensor_slices(bboxes_padded)
     classes_dataset = tf.data.Dataset.from_tensor_slices(classes)
