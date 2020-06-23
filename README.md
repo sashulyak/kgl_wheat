@@ -26,10 +26,3 @@ EfficientDet implementation by [kamauz](https://github.com/kamauz/EfficientDet).
 mkdir weights
 wget -P ./weights https://github.com/Callidior/keras-applications/releases/download/efficientnet/efficientnet-b4_weights_tf_dim_ordering_tf_kernels_autoaugment_notop.h5
 ```
-
-
-### Compile Cython module
-
-```bash
-poetry run python kgl_wheat/efficientdet/setup.py build_ext --inplace
-```

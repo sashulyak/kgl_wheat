@@ -62,7 +62,7 @@ def get_dataset(image_paths: List[str], bboxes: List[List[int]], max_bboxes: int
     :return: Tensorflow dataset
     """
     bboxes_padded = np.zeros(shape=(len(bboxes), max_bboxes, 4), dtype=np.int32)
-    classes = np.zeros(shape=(len(bboxes), max_bboxes, 1), dtype=np.int32)
+    classes = np.ones(shape=(len(bboxes), max_bboxes, 1), dtype=np.int32) * -1
     for i, image_bboxes in enumerate(bboxes):
         for j, bbox in enumerate(image_bboxes):
             bboxes_padded[i, j] = bbox

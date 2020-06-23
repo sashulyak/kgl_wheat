@@ -90,7 +90,7 @@ if __name__ == '__main__':
         score_threshold=0.7
     )
 
-    model.load_weights(config.WEIGHTS_PATH, by_name=True)
+    model.load_weights(config.EFFNET_WEIGHTS_PATH, by_name=True)
 
     for i in range(1, [227, 329, 329, 374, 464, 566, 656][4]):
         model.layers[i].trainable = False
@@ -105,9 +105,19 @@ if __name__ == '__main__':
 
     model.fit(
         x=train_dataset,
-        epochs=20
+        validation_data=val_dataset,
+        epochs=20,
+        callbacks=[
+            tf.keras.callbacks.EarlyStopping(
+                monitor='val_loss',
+                patience=10,
+                verbose=1,
+                restore_best_weights=True
+            ),
+            tf.keras.callbacks.ModelCheckpoint(
+                config.MODEL_WEIGHTS_PATH,
+                save_best_only=True,
+                monitor='val_loss'
+            )
+        ]
     )
-
-    # print(len(image_paths))
-    # print(len(train_image_paths))
-    # print(len(val_image_paths))
