@@ -26,3 +26,12 @@ EfficientDet implementation by [kamauz](https://github.com/kamauz/EfficientDet).
 mkdir weights
 wget -P ./weights https://github.com/Callidior/keras-applications/releases/download/efficientnet/efficientnet-b4_weights_tf_dim_ordering_tf_kernels_autoaugment_notop.h5
 ```
+
+
+### Run training script
+
+*IMPORTANT!* I used one NVIDIA GeForce 1080ti GPU for training.
+
+```bash
+CUDA_VISIBLE_DEVICES="0" poetry run python kgl_wheat/train.py
+```
