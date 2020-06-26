@@ -121,3 +121,6 @@ if __name__ == '__main__':
             )
         ]
     )
+
+    prediction_model.load_weights(config.MODEL_WEIGHTS_PATH)
+    prediction_model.save(config.MODEL_WEIGHTS_PATH))
