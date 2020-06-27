@@ -5,8 +5,8 @@ import numpy as np
 
 
 def calculate_iou(
-        gt: np.ndarray[Union[int, float]],
-        pr:np.ndarray[Union[int, float]],
+        gt: np.ndarray,
+        pr: np.ndarray,
         form: str = 'pascal_voc'
 ) -> float:
     """
