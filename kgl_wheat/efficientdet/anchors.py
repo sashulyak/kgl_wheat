@@ -39,6 +39,115 @@ AnchorParameters.default = AnchorParameters(
 )
 
 
+def anchor_targets_bbox(
+        anchors: np.ndarray,
+        annotations_group,
+        num_classes,
+        negative_overlap=0.4,
+        positive_overlap=0.5
+):
+    """
+    Generate anchor targets for bbox detection.
+    :param anchors: np.array of annotations of shape (N, 4) for (x1, y1, x2, y2).
+    :param annotations_group: List of annotations (np.array of shape (N, 5) for (x1, y1, x2, y2, label)).
+    :param num_classes: Number of classes to predict.
+    :param mask_shape: If the image is padded with zeros, mask_shape can be used to mark the relevant part of the image.
+    :param negative_overlap: IoU overlap for negative anchors (all anchors with overlap < negative_overlap are negative).
+    :param positive_overlap: IoU overlap or positive anchors (all anchors with overlap > positive_overlap are positive).
+    :return:
+        labels_batch: batch that contains labels & anchor states (np.array of shape (batch_size, N, num_classes + 1),
+                      where N is the number of anchors for an image and the last column defines the anchor state
+                      (-1 for ignore, 0 for bg, 1 for fg).
+        regression_batch: batch that contains bounding-box regression targets for an image & anchor states
+                      (np.array of shape (batch_size, N, 4 + 1), where N is the number of anchors for an image,
+                      the first 4 columns define regression targets for (x1, y1, x2, y2) and the last column defines
+                      anchor states (-1 for ignore, 0 for bg, 1 for fg).
+    """
+    assert (len(annotations_group) > 0), "No data received to compute anchor targets for."
+    # for annotations in annotations_group:
+    #     assert ('bboxes' in annotations), "Annotations should contain bboxes."
+    #     assert ('labels' in annotations), "Annotations should contain labels."
+
+    batch_size = len(annotations_group)
+
+    regression_batch = np.zeros((batch_size, anchors.shape[0], 4 + 1), dtype=np.float32)
+    labels_batch = np.zeros((batch_size, anchors.shape[0], num_classes + 1), dtype=np.float32)
+
+    # compute labels and regression targets
+    for index, annotations in enumerate(annotations_group):
+        # obtain indices of gt annotations with the greatest overlap
+        # argmax_overlaps_inds: id of ground truth box has greatest overlap with anchor
+        # (N, ), (N, ), (N, ) N is num_anchors
+        positive_indices, ignore_indices, argmax_overlaps_inds = compute_gt_annotations(
+            anchors,
+            annotations[:, :-1],
+            negative_overlap,
+            positive_overlap
+        )
+        labels_batch[index, ignore_indices, -1] = -1
+        labels_batch[index, positive_indices, -1] = 1
+
+        regression_batch[index, ignore_indices, -1] = -1
+        regression_batch[index, positive_indices, -1] = 1
+
+        # compute target class labels
+        labels_batch[
+            index,
+            positive_indices,
+            annotations[:, -1][argmax_overlaps_inds[positive_indices]].astype(int)
+        ] = 1
+
+        regression_batch[index, :, :4] = bbox_transform(anchors, annotations[:, :-1][argmax_overlaps_inds, :])
+
+        # ignore anchors outside of image
+        anchors_centers = np.vstack([(anchors[:, 0] + anchors[:, 2]) / 2, (anchors[:, 1] + anchors[:, 3]) / 2]).T
+        indices = np.logical_or(anchors_centers[:, 0] >= config.IMAGE_SIZE, anchors_centers[:, 1] >= config.IMAGE_SIZE)
+
+        labels_batch[index, indices, -1] = -1
+        regression_batch[index, indices, -1] = -1
+
+    return labels_batch, regression_batch
+
+
+def compute_gt_annotations(
+        anchors: np.ndarray,
+        annotations: np.ndarray,
+        negative_overlap: float = 0.4,
+        positive_overlap: float = 0.5
+):
+    """
+    Obtain indices of gt annotations with the greatest overlap.
+    :param anchors: np.array of annotations of shape (N, 4) for (x1, y1, x2, y2).
+    :param annotations: np.array of shape (K, 5) for (x1, y1, x2, y2, label).
+    :param negative_overlap: IoU overlap for negative anchors (all anchors with overlap < negative_overlap are negative).
+    :param positive_overlap: IoU overlap or positive anchors (all anchors with overlap > positive_overlap are positive).
+    :return:
+        positive_indices: indices of positive anchors, (N, )
+        ignore_indices: indices of ignored anchors, (N, )
+        argmax_overlaps_inds: ordered overlaps indices, (N, )
+    """
+    # (N, K)
+    overlaps = compute_overlap(anchors.astype(np.float64), annotations.astype(np.float64))
+    # (N, )
+    argmax_overlaps_inds = np.argmax(overlaps, axis=1)
+    # (N, )
+    max_overlaps = overlaps[np.arange(overlaps.shape[0]), argmax_overlaps_inds]
+
+    # assign "dont care" labels
+    # (N, )
+    positive_indices = max_overlaps >= positive_overlap
+
+    # adam: in case of there are gt boxes has no matched positive anchors
+    # nonzero_inds = np.nonzero(overlaps == np.max(overlaps, axis=0))
+    # positive_indices[nonzero_inds[0]] = 1
+
+    # (N, )
+    ignore_indices = (max_overlaps > negative_overlap) & ~positive_indices
+
+    return positive_indices, ignore_indices, argmax_overlaps_inds
+
+
+
 def layer_shapes(image_shape, model):
     """
     Compute layer shapes given input image shape and the model.
