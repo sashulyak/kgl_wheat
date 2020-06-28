@@ -57,14 +57,21 @@ if __name__ == '__main__':
 
     model.load_weights(config.MODEL_WEIGHTS_PATH)
 
-    boxes, scores, labels = prediction_model.predict(val_dataset, verbose=2)
+    boxes, scores, labels = prediction_model.predict(val_dataset, verbose=1)
 
     boxes, scores, labels = np.squeeze(boxes), np.squeeze(scores), np.squeeze(labels)
+    print('len(boxes):', len(boxes))
 
     boxes = postprocess_boxes(boxes=boxes, height=config.IMAGE_SIZE, width=config.IMAGE_SIZE)
 
+    print('len(boxes) after postprocess:', len(boxes))
+
+    print('max(scores)', np.max(scores))
+
     indices = np.where(scores[:] > config.SCORE_THRESHOLD)[0]
     boxes = boxes[indices]
+
+    print('len(boxes) after thresholding:', len(boxes))
 
     precisions = []
     for val_boxes, pred_boxes in tqdm(zip(val_image_bboxes, boxes), total=len(val_image_bboxes)):
