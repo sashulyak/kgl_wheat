@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 
 import config
+from kgl_wheat.efficientdet.anchors import AnchorParameters, anchor_targets_bbox
 
 
 def decode_img(img: tf.Tensor) -> tf.Tensor:
@@ -33,7 +34,7 @@ def convert_bbox(bbox: tf.Tensor) -> tf.Tensor:
     return tf.stack([bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]])
 
 
-def read_image_and_convert_bboxes(
+def read_image_and_concat_labels(
     file_path: tf.Tensor,
     bboxes: tf.Tensor,
     bbox_classes: tf.Tensor
@@ -47,9 +48,22 @@ def read_image_and_convert_bboxes(
     """
     img = tf.io.read_file(file_path)
     img = decode_img(img)
-    bboxes_converted = tf.map_fn(convert_bbox, bboxes)
-    label = tf.concat([bboxes_converted, bbox_classes], axis=1)
+    label = tf.concat([bboxes, bbox_classes], axis=1)
     return img, label
+
+
+def preprocess_bboxes(bboxes: List[List[int]], classes: List[List[int]]]):
+    anchor_parameters = AnchorParameters.default
+    anchors = anchors_for_shape((config.IMAGE_SIZE, config.IMAGE_SIZE), anchor_params=anchor_parameters)
+    num_anchors = anchor_parameters.num_anchors()
+
+    classes_preprocessed, bboxes_preprocessed = anchor_targets_bbox(
+            anchors,
+            np.array(bboxes),
+            np.array(classes),
+            num_classes=num_classes()
+        )
+    return bboxes_preprocessed, classes_preprocessed
 
 
 def get_dataset(image_paths: List[str], bboxes: List[List[int]], max_bboxes: int) -> tf.data.Dataset:
@@ -61,17 +75,22 @@ def get_dataset(image_paths: List[str], bboxes: List[List[int]], max_bboxes: int
     :param max_bboxes: max bboxes per image
     :return: Tensorflow dataset
     """
-    bboxes_padded = np.zeros(shape=(len(bboxes), max_bboxes, 4), dtype=np.int32)
-    classes = np.ones(shape=(len(bboxes), max_bboxes, 1), dtype=np.int32) * -1
-    for i, image_bboxes in enumerate(bboxes):
-        for j, bbox in enumerate(image_bboxes):
-            bboxes_padded[i, j] = bbox
-            classes[i, j, 0] = 1
-    paths_datasert = tf.data.Dataset.from_tensor_slices(image_paths)
-    bboxes_dataset = tf.data.Dataset.from_tensor_slices(bboxes_padded)
-    classes_dataset = tf.data.Dataset.from_tensor_slices(classes)
-    dataset = tf.data.Dataset.zip((paths_datasert, bboxes_dataset, classes_dataset))
-    dataset = dataset.map(read_image_and_convert_bboxes, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    classes = []
+    bboxes_coco = []
+    for image_bboxes in enumerate(bboxes):
+        classes.append([])
+        bboxes_coco.append([])
+        for bbox in enumerate(image_bboxes):
+            classes[-1].append(1)
+            bboxes_coco[-1].append([bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]])
+
+    bboxes_preprocessed, classes_preprocessed = preprocess_bboxes(bboxes, classes)
+
+    paths_dataset = tf.data.Dataset.from_tensor_slices(image_paths)
+    bboxes_dataset = tf.data.Dataset.from_tensor_slices(bboxes_preprocessed)
+    classes_dataset = tf.data.Dataset.from_tensor_slices(classes_preprocessed)
+    dataset = tf.data.Dataset.zip((paths_dataset, bboxes_dataset, classes_dataset))
+    dataset = dataset.map(read_image_and_concat_labels, num_parallel_calls=tf.data.experimental.AUTOTUNE)
     dataset = dataset.batch(config.BATCH_SIZE)
     dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
     return dataset

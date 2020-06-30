@@ -41,7 +41,8 @@ AnchorParameters.default = AnchorParameters(
 
 def anchor_targets_bbox(
         anchors: np.ndarray,
-        annotations_group,
+        bboxes,
+        labels,
         num_classes,
         negative_overlap=0.4,
         positive_overlap=0.5
@@ -49,7 +50,8 @@ def anchor_targets_bbox(
     """
     Generate anchor targets for bbox detection.
     :param anchors: np.array of annotations of shape (N, 4) for (x1, y1, x2, y2).
-    :param annotations_group: List of annotations (np.array of shape (N, 5) for (x1, y1, x2, y2, label)).
+    :param bboxes: List of bboxes (np.array of shape (N, 4) for (x1, y1, x2, y2)).
+    :param labels: List of labels (np.array of shape (N, 1) for (label)).
     :param num_classes: Number of classes to predict.
     :param mask_shape: If the image is padded with zeros, mask_shape can be used to mark the relevant part of the image.
     :param negative_overlap: IoU overlap for negative anchors (all anchors with overlap < negative_overlap are negative).
@@ -63,24 +65,24 @@ def anchor_targets_bbox(
                       the first 4 columns define regression targets for (x1, y1, x2, y2) and the last column defines
                       anchor states (-1 for ignore, 0 for bg, 1 for fg).
     """
-    assert (len(annotations_group) > 0), "No data received to compute anchor targets for."
-    # for annotations in annotations_group:
+    assert (len(bboxes) > 0), "No data received to compute anchor targets for."
+    # for annotations in bboxes:
     #     assert ('bboxes' in annotations), "Annotations should contain bboxes."
     #     assert ('labels' in annotations), "Annotations should contain labels."
 
-    batch_size = len(annotations_group)
+    batch_size = len(bboxes)
 
     regression_batch = np.zeros((batch_size, anchors.shape[0], 4 + 1), dtype=np.float32)
     labels_batch = np.zeros((batch_size, anchors.shape[0], num_classes + 1), dtype=np.float32)
 
     # compute labels and regression targets
-    for index, annotations in enumerate(annotations_group):
+    for index, image_bboxes, image_labels in enumerate(zip(bboxes, labels)):
         # obtain indices of gt annotations with the greatest overlap
         # argmax_overlaps_inds: id of ground truth box has greatest overlap with anchor
         # (N, ), (N, ), (N, ) N is num_anchors
         positive_indices, ignore_indices, argmax_overlaps_inds = compute_gt_annotations(
             anchors,
-            annotations[:, :-1],
+            image_bboxes,
             negative_overlap,
             positive_overlap
         )
@@ -94,10 +96,10 @@ def anchor_targets_bbox(
         labels_batch[
             index,
             positive_indices,
-            annotations[:, -1][argmax_overlaps_inds[positive_indices]].astype(int)
+            image_labels[argmax_overlaps_inds[positive_indices]].astype(int)
         ] = 1
 
-        regression_batch[index, :, :4] = bbox_transform(anchors, annotations[:, :-1][argmax_overlaps_inds, :])
+        regression_batch[index, :, :4] = bbox_transform(anchors, image_bboxes[argmax_overlaps_inds, :])
 
         # ignore anchors outside of image
         anchors_centers = np.vstack([(anchors[:, 0] + anchors[:, 2]) / 2, (anchors[:, 1] + anchors[:, 3]) / 2]).T
