@@ -3,8 +3,12 @@ from typing import List, Tuple
 import numpy as np
 import tensorflow as tf
 
-import config
-from kgl_wheat.efficientdet.anchors import AnchorParameters, anchor_targets_bbox
+from kgl_wheat import config
+from kgl_wheat.efficientdet.anchors import (
+    AnchorParameters,
+    anchor_targets_bbox,
+    anchors_for_shape
+)
 
 
 def decode_img(img: tf.Tensor) -> tf.Tensor:
@@ -52,38 +56,37 @@ def read_image_and_concat_labels(
     return img, label
 
 
-def preprocess_bboxes(bboxes: List[List[int]], classes: List[List[int]]]):
+def preprocess_bboxes(bboxes: List[List[int]], classes: List[List[int]]):
     anchor_parameters = AnchorParameters.default
     anchors = anchors_for_shape((config.IMAGE_SIZE, config.IMAGE_SIZE), anchor_params=anchor_parameters)
-    num_anchors = anchor_parameters.num_anchors()
 
     classes_preprocessed, bboxes_preprocessed = anchor_targets_bbox(
             anchors,
             np.array(bboxes),
             np.array(classes),
-            num_classes=num_classes()
+            num_classes=1
         )
     return bboxes_preprocessed, classes_preprocessed
 
 
-def get_dataset(image_paths: List[str], bboxes: List[List[int]], max_bboxes: int) -> tf.data.Dataset:
+def get_dataset(image_paths: List[str], bboxes: List[List[int]]) -> tf.data.Dataset:
     """
     Create Tensorflow dataset consisted of face crop/label pairs.
 
     :param image_paths: image paths
     :param bboxes: bboxes of the detected objects
-    :param max_bboxes: max bboxes per image
     :return: Tensorflow dataset
     """
     classes = []
     bboxes_coco = []
-    for image_bboxes in enumerate(bboxes):
+    for image_bboxes in bboxes:
         classes.append([])
         bboxes_coco.append([])
-        for bbox in enumerate(image_bboxes):
+        for bbox in image_bboxes:
             classes[-1].append(1)
             bboxes_coco[-1].append([bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]])
 
+    print('Preprocess bboxes ...')
     bboxes_preprocessed, classes_preprocessed = preprocess_bboxes(bboxes, classes)
 
     paths_dataset = tf.data.Dataset.from_tensor_slices(image_paths)

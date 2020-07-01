@@ -39,6 +39,7 @@ def get_train_val_split(image_paths, image_bboxes, image_sources, seed, train_si
     train_image_bboxes = np.array(image_bboxes)[train_idx].tolist()
     val_image_paths = np.array(image_paths)[val_idx].tolist()
     val_image_bboxes = np.array(image_bboxes)[val_idx].tolist()
+    print('train_image_bboxes[0]', train_image_bboxes[0][:10])
     return train_image_paths, train_image_bboxes, val_image_paths, val_image_bboxes
 
 
@@ -59,9 +60,6 @@ if __name__ == '__main__':
         train_images_dir=config.TRAIN_IMAGES_DIR
     )
 
-    max_bboxes = get_max_bboxes(image_bboxes)
-    print(f'Max bboxes: {max_bboxes}')
-
     train_image_paths, train_image_bboxes, val_image_paths, val_image_bboxes = \
         get_train_val_split(
             image_paths=image_paths,
@@ -73,14 +71,12 @@ if __name__ == '__main__':
 
     train_dataset = get_dataset(
         image_paths=train_image_paths,
-        bboxes=train_image_bboxes,
-        max_bboxes=max_bboxes
+        bboxes=train_image_bboxes
     )
 
     val_dataset = get_dataset(
         image_paths=val_image_paths,
-        bboxes=val_image_bboxes,
-        max_bboxes=max_bboxes
+        bboxes=val_image_bboxes
     )
 
     model, prediction_model = efficientdet(

@@ -1,6 +1,10 @@
 # import keras
 import numpy as np
 from tensorflow import keras
+from tqdm import tqdm
+
+from kgl_wheat import config
+from kgl_wheat.efficientdet.utils.compute_overlap import compute_overlap
 
 
 class AnchorParameters:
@@ -76,7 +80,7 @@ def anchor_targets_bbox(
     labels_batch = np.zeros((batch_size, anchors.shape[0], num_classes + 1), dtype=np.float32)
 
     # compute labels and regression targets
-    for index, image_bboxes, image_labels in enumerate(zip(bboxes, labels)):
+    for index, (image_bboxes, image_labels) in tqdm(enumerate(zip(bboxes, labels)), total=len(bboxes)):
         # obtain indices of gt annotations with the greatest overlap
         # argmax_overlaps_inds: id of ground truth box has greatest overlap with anchor
         # (N, ), (N, ), (N, ) N is num_anchors
