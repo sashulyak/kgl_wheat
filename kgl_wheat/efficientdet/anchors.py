@@ -84,6 +84,8 @@ def anchor_targets_bbox(
         # obtain indices of gt annotations with the greatest overlap
         # argmax_overlaps_inds: id of ground truth box has greatest overlap with anchor
         # (N, ), (N, ), (N, ) N is num_anchors
+        image_bboxes = np.array(image_bboxes)
+        image_labels = np.array(image_labels)
         positive_indices, ignore_indices, argmax_overlaps_inds = compute_gt_annotations(
             anchors,
             image_bboxes,
@@ -117,14 +119,14 @@ def anchor_targets_bbox(
 
 def compute_gt_annotations(
         anchors: np.ndarray,
-        annotations: np.ndarray,
+        image_bboxes: np.ndarray,
         negative_overlap: float = 0.4,
         positive_overlap: float = 0.5
 ):
     """
     Obtain indices of gt annotations with the greatest overlap.
     :param anchors: np.array of annotations of shape (N, 4) for (x1, y1, x2, y2).
-    :param annotations: np.array of shape (K, 5) for (x1, y1, x2, y2, label).
+    :param image_bboxes: np.array of shape (K, 4) for (x1, y1, x2, y2).
     :param negative_overlap: IoU overlap for negative anchors (all anchors with overlap < negative_overlap are negative).
     :param positive_overlap: IoU overlap or positive anchors (all anchors with overlap > positive_overlap are positive).
     :return:
@@ -133,7 +135,7 @@ def compute_gt_annotations(
         argmax_overlaps_inds: ordered overlaps indices, (N, )
     """
     # (N, K)
-    overlaps = compute_overlap(anchors.astype(np.float64), annotations.astype(np.float64))
+    overlaps = compute_overlap(anchors.astype(np.float64), image_bboxes.astype(np.float64))
     # (N, )
     argmax_overlaps_inds = np.argmax(overlaps, axis=1)
     # (N, )

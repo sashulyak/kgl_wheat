@@ -39,7 +39,6 @@ def get_train_val_split(image_paths, image_bboxes, image_sources, seed, train_si
     train_image_bboxes = np.array(image_bboxes)[train_idx].tolist()
     val_image_paths = np.array(image_paths)[val_idx].tolist()
     val_image_bboxes = np.array(image_bboxes)[val_idx].tolist()
-    print('train_image_bboxes[0]', train_image_bboxes[0][:10])
     return train_image_paths, train_image_bboxes, val_image_paths, val_image_bboxes
 
 
