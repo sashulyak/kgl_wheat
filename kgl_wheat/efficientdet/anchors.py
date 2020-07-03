@@ -1,4 +1,6 @@
-# import keras
+from multiprocessing import Pool
+from functools import partial
+
 import numpy as np
 from tensorflow import keras
 from tqdm import tqdm
@@ -43,6 +45,27 @@ AnchorParameters.default = AnchorParameters(
 )
 
 
+def convert_image_boxes_and_labels(anchors, negative_overlap, positive_overlap, image_bboxes_and_labels):
+    image_bboxes = image_bboxes_and_labels[0]
+    image_labels = image_bboxes_and_labels[1]
+    # obtain indices of gt annotations with the greatest overlap
+        # argmax_overlaps_inds: id of ground truth box has greatest overlap with anchor
+        # (N, ), (N, ), (N, ) N is num_anchors
+    image_bboxes = np.array(image_bboxes)
+    image_labels = np.array(image_labels)
+    positive_indices, ignore_indices, argmax_overlaps_inds = compute_gt_annotations(
+        anchors,
+        image_bboxes,
+        negative_overlap,
+        positive_overlap
+    )
+
+    # ignore anchors outside of image
+    anchors_centers = np.vstack([(anchors[:, 0] + anchors[:, 2]) / 2, (anchors[:, 1] + anchors[:, 3]) / 2]).T
+    indices = np.logical_or(anchors_centers[:, 0] >= config.IMAGE_SIZE, anchors_centers[:, 1] >= config.IMAGE_SIZE)
+
+    return image_bboxes, image_labels, positive_indices, ignore_indices, argmax_overlaps_inds, indices
+
 def anchor_targets_bbox(
         anchors: np.ndarray,
         bboxes,
@@ -79,40 +102,34 @@ def anchor_targets_bbox(
     regression_batch = np.zeros((batch_size, anchors.shape[0], 4 + 1), dtype=np.float32)
     labels_batch = np.zeros((batch_size, anchors.shape[0], num_classes + 1), dtype=np.float32)
 
+    convert_image_boxes_and_labels_partial = partial(
+        convert_image_boxes_and_labels,
+        anchors,
+        negative_overlap,
+        positive_overlap
+    )
     # compute labels and regression targets
-    for index, (image_bboxes, image_labels) in tqdm(enumerate(zip(bboxes, labels)), total=len(bboxes)):
-        # obtain indices of gt annotations with the greatest overlap
-        # argmax_overlaps_inds: id of ground truth box has greatest overlap with anchor
-        # (N, ), (N, ), (N, ) N is num_anchors
-        image_bboxes = np.array(image_bboxes)
-        image_labels = np.array(image_labels)
-        positive_indices, ignore_indices, argmax_overlaps_inds = compute_gt_annotations(
-            anchors,
-            image_bboxes,
-            negative_overlap,
-            positive_overlap
-        )
-        labels_batch[index, ignore_indices, -1] = -1
-        labels_batch[index, positive_indices, -1] = 1
+    with Pool(24) as p:
+        with tqdm(total=len(bboxes)) as pbar:
+            for index, (image_bboxes, image_labels, positive_indices, ignore_indices, argmax_overlaps_inds, indices) in enumerate(p.imap(convert_image_boxes_and_labels_partial, zip(bboxes, labels))):
+                labels_batch[index, ignore_indices, -1] = -1
+                labels_batch[index, positive_indices, -1] = 1
 
-        regression_batch[index, ignore_indices, -1] = -1
-        regression_batch[index, positive_indices, -1] = 1
+                regression_batch[index, ignore_indices, -1] = -1
+                regression_batch[index, positive_indices, -1] = 1
 
-        # compute target class labels
-        labels_batch[
-            index,
-            positive_indices,
-            image_labels[argmax_overlaps_inds[positive_indices]].astype(int)
-        ] = 1
+                # compute target class labels
+                labels_batch[
+                    index,
+                    positive_indices,
+                    image_labels[argmax_overlaps_inds[positive_indices]].astype(int)
+                ] = 1
 
-        regression_batch[index, :, :4] = bbox_transform(anchors, image_bboxes[argmax_overlaps_inds, :])
+                regression_batch[index, :, :4] = bbox_transform(anchors, image_bboxes[argmax_overlaps_inds, :])
 
-        # ignore anchors outside of image
-        anchors_centers = np.vstack([(anchors[:, 0] + anchors[:, 2]) / 2, (anchors[:, 1] + anchors[:, 3]) / 2]).T
-        indices = np.logical_or(anchors_centers[:, 0] >= config.IMAGE_SIZE, anchors_centers[:, 1] >= config.IMAGE_SIZE)
-
-        labels_batch[index, indices, -1] = -1
-        regression_batch[index, indices, -1] = -1
+                labels_batch[index, indices, -1] = -1
+                regression_batch[index, indices, -1] = -1
+                pbar.update()
 
     return labels_batch, regression_batch
 
