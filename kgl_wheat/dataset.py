@@ -40,8 +40,7 @@ def convert_bbox(bbox: tf.Tensor) -> tf.Tensor:
 
 def read_image_and_concat_labels(
     file_path: tf.Tensor,
-    bboxes: tf.Tensor,
-    bbox_classes: tf.Tensor
+    label: tf.Tensor
 ) -> Tuple[tf.Tensor, tf.Tensor]:
     """
     Read and preprocess image to 3D float Tensor. And convert bbox.
@@ -51,8 +50,6 @@ def read_image_and_concat_labels(
     :return: pair of preprocessed image Tensor and corresponded label Tensor
     """
     img = tf.io.read_file(file_path)
-    img = decode_img(img)
-    label = tf.concat([bboxes, bbox_classes], axis=1)
     return img, label
 
 
@@ -87,12 +84,15 @@ def get_dataset(image_paths: List[str], bboxes: List[List[int]]) -> tf.data.Data
             bboxes_coco[-1].append([bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]])
 
     print('Preprocess bboxes ...')
-    bboxes_preprocessed, classes_preprocessed = preprocess_bboxes(bboxes, classes)
+    bboxes_preprocessed, classes_preprocessed = preprocess_bboxes(bboxes_coco[:16], classes[:16])
+    print('bboxes_preprocessed.shape:', bboxes_preprocessed.shape)
+    print('classes_preprocessed.shape:', classes_preprocessed.shape)
 
     paths_dataset = tf.data.Dataset.from_tensor_slices(image_paths)
     bboxes_dataset = tf.data.Dataset.from_tensor_slices(bboxes_preprocessed)
     classes_dataset = tf.data.Dataset.from_tensor_slices(classes_preprocessed)
-    dataset = tf.data.Dataset.zip((paths_dataset, bboxes_dataset, classes_dataset))
+    labels_dataset = tf.data.Dataset.zip((classes_dataset, bboxes_dataset))
+    dataset = tf.data.Dataset.zip((paths_dataset, labels_dataset))
     dataset = dataset.map(read_image_and_concat_labels, num_parallel_calls=tf.data.experimental.AUTOTUNE)
     dataset = dataset.batch(config.BATCH_SIZE)
     dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)

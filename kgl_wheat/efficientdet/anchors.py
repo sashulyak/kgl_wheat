@@ -51,7 +51,7 @@ def convert_image_boxes_and_labels(anchors, negative_overlap, positive_overlap, 
     # obtain indices of gt annotations with the greatest overlap
         # argmax_overlaps_inds: id of ground truth box has greatest overlap with anchor
         # (N, ), (N, ), (N, ) N is num_anchors
-    image_bboxes = np.array(image_bboxes, dtype=np.float64)
+    image_bboxes = np.array(image_bboxes).astype(np.float64)
     image_labels = np.array(image_labels)
     positive_indices, ignore_indices, argmax_overlaps_inds = compute_gt_annotations(
         anchors,
