@@ -50,6 +50,7 @@ def read_image_and_concat_labels(
     :return: pair of preprocessed image Tensor and corresponded label Tensor
     """
     img = tf.io.read_file(file_path)
+    img = decode_img(img)
     return img, label
 
 
@@ -84,9 +85,7 @@ def get_dataset(image_paths: List[str], bboxes: List[List[int]]) -> tf.data.Data
             bboxes_coco[-1].append([bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]])
 
     print('Preprocess bboxes ...')
-    bboxes_preprocessed, classes_preprocessed = preprocess_bboxes(bboxes_coco[:16], classes[:16])
-    print('bboxes_preprocessed.shape:', bboxes_preprocessed.shape)
-    print('classes_preprocessed.shape:', classes_preprocessed.shape)
+    bboxes_preprocessed, classes_preprocessed = preprocess_bboxes(bboxes_coco, classes)
 
     paths_dataset = tf.data.Dataset.from_tensor_slices(image_paths)
     bboxes_dataset = tf.data.Dataset.from_tensor_slices(bboxes_preprocessed)
@@ -96,4 +95,5 @@ def get_dataset(image_paths: List[str], bboxes: List[List[int]]) -> tf.data.Data
     dataset = dataset.map(read_image_and_concat_labels, num_parallel_calls=tf.data.experimental.AUTOTUNE)
     dataset = dataset.batch(config.BATCH_SIZE)
     dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+
     return dataset
