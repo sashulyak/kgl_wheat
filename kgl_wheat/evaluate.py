@@ -44,8 +44,7 @@ if __name__ == '__main__':
 
     val_dataset = get_dataset(
         image_paths=val_image_paths,
-        bboxes=val_image_bboxes,
-        max_bboxes=max_bboxes
+        bboxes=None
     )
 
     model, prediction_model = efficientdet(
@@ -55,7 +54,7 @@ if __name__ == '__main__':
         score_threshold=0.7
     )
 
-    model.load_weights(config.MODEL_WEIGHTS_PATH)
+    prediction_model.load_weights(config.MODEL_WEIGHTS_PATH, by_name=True)
 
     boxes, scores, labels = prediction_model.predict(val_dataset, verbose=1)
 

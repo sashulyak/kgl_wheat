@@ -38,10 +38,9 @@ def convert_bbox(bbox: tf.Tensor) -> tf.Tensor:
     return tf.stack([bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]])
 
 
-def read_image_and_concat_labels(
+def read_image(
     file_path: tf.Tensor,
-    label: tf.Tensor
-) -> Tuple[tf.Tensor, tf.Tensor]:
+) -> tf.Tensor:
     """
     Read and preprocess image to 3D float Tensor. And convert bbox.
 
@@ -51,7 +50,7 @@ def read_image_and_concat_labels(
     """
     img = tf.io.read_file(file_path)
     img = decode_img(img)
-    return img, label
+    return img
 
 
 def preprocess_bboxes(bboxes: List[List[int]], classes: List[List[int]]):
@@ -75,24 +74,27 @@ def get_dataset(image_paths: List[str], bboxes: List[List[int]]) -> tf.data.Data
     :param bboxes: bboxes of the detected objects
     :return: Tensorflow dataset
     """
-    classes = []
-    bboxes_coco = []
-    for image_bboxes in bboxes:
-        classes.append([])
-        bboxes_coco.append([])
-        for bbox in image_bboxes:
-            classes[-1].append(1)
-            bboxes_coco[-1].append([bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]])
-
-    print('Preprocess bboxes ...')
-    bboxes_preprocessed, classes_preprocessed = preprocess_bboxes(bboxes_coco, classes)
-
     paths_dataset = tf.data.Dataset.from_tensor_slices(image_paths)
-    bboxes_dataset = tf.data.Dataset.from_tensor_slices(bboxes_preprocessed)
-    classes_dataset = tf.data.Dataset.from_tensor_slices(classes_preprocessed)
-    labels_dataset = tf.data.Dataset.zip((classes_dataset, bboxes_dataset))
-    dataset = tf.data.Dataset.zip((paths_dataset, labels_dataset))
-    dataset = dataset.map(read_image_and_concat_labels, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    images_dataset = paths_dataset.map(read_image, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    if bboxes is not None:
+        classes = []
+        bboxes_coco = []
+        for image_bboxes in bboxes:
+            classes.append([])
+            bboxes_coco.append([])
+            for bbox in image_bboxes:
+                classes[-1].append(0)
+                bboxes_coco[-1].append([bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]])
+
+        print('Preprocess bboxes ...')
+        bboxes_preprocessed, classes_preprocessed = preprocess_bboxes(bboxes_coco, classes)
+        bboxes_dataset = tf.data.Dataset.from_tensor_slices(bboxes_preprocessed)
+        classes_dataset = tf.data.Dataset.from_tensor_slices(classes_preprocessed)
+        labels_dataset = tf.data.Dataset.zip((classes_dataset, bboxes_dataset))
+        dataset = tf.data.Dataset.zip((images_dataset, labels_dataset))
+    else:
+        dataset = images_dataset
+
     dataset = dataset.batch(config.BATCH_SIZE)
     dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
