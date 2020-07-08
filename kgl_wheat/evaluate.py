@@ -26,17 +26,15 @@ if __name__ == '__main__':
     tf.random.set_seed(22)
     np.random.seed(22)
 
-    image_paths, image_bboxes, image_sources = read_train_csv(
+    image_paths, bboxes, image_sources = read_train_csv(
         train_csv_path=config.TRAIN_LABELS_FILE,
         train_images_dir=config.TRAIN_IMAGES_DIR
     )
 
-    max_bboxes = get_max_bboxes(image_bboxes)
-
-    train_image_paths, train_image_bboxes, val_image_paths, val_image_bboxes = \
+    train_image_paths, train_bboxes, val_image_paths, val_bboxes = \
         get_train_val_split(
             image_paths=image_paths,
-            image_bboxes=image_bboxes,
+            image_bboxes=bboxes,
             image_sources=image_sources,
             seed=config.SEED,
             train_size=config.TRAIN_SIZE
@@ -56,27 +54,20 @@ if __name__ == '__main__':
 
     prediction_model.load_weights(config.MODEL_WEIGHTS_PATH, by_name=True)
 
-    boxes, scores, labels = prediction_model.predict(val_dataset, verbose=1)
+    pred_bboxes, pred_scores, pred_labels = prediction_model.predict(val_dataset, verbose=1)
 
-    boxes, scores, labels = np.squeeze(boxes), np.squeeze(scores), np.squeeze(labels)
-    print('len(boxes):', len(boxes))
+    pred_bboxes, pred_scores, pred_labels = np.squeeze(pred_bboxes), np.squeeze(pred_scores), np.squeeze(pred_labels)
 
-    boxes = postprocess_boxes(boxes=boxes, height=config.IMAGE_SIZE, width=config.IMAGE_SIZE)
+    pred_bboxes = postprocess_boxes(boxes=pred_bboxes, height=config.IMAGE_SIZE, width=config.IMAGE_SIZE)
 
-    print('len(boxes) after postprocess:', len(boxes))
-
-    print('max(scores)', np.max(scores))
-
-    indices = np.where(scores[:] > config.SCORE_THRESHOLD)[0]
-    boxes = boxes[indices]
-
-    print('len(boxes) after thresholding:', len(boxes))
+    indices = np.where(pred_scores[:] > config.SCORE_THRESHOLD)[0]
+    pred_bboxes = pred_bboxes[indices]
 
     precisions = []
-    for val_boxes, pred_boxes in tqdm(zip(val_image_bboxes, boxes), total=len(val_image_bboxes)):
+    for image_val_bboxes, image_pred_bboxes in tqdm(zip(val_bboxes, pred_bboxes), total=len(val_bboxes)):
         precision = calculate_image_precision(
-            gts=val_boxes,
-            preds=pred_boxes,
+            gts=image_val_bboxes,
+            preds=image_pred_bboxes,
             thresholds=[0.5, 0.55, 0.6, 0.65, 0.7, 0.75],
             form='coco'
         )

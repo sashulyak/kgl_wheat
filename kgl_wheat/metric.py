@@ -76,11 +76,11 @@ def find_best_match(
     best_match_idx = -1
 
     for gt_idx in range(len(gts)):
-        
         if gts[gt_idx][0] < 0:
             # Already matched GT-box
             continue
-        
+
+
         iou = -1 if ious is None else ious[gt_idx][pred_idx]
 
         if iou < 0:
@@ -131,7 +131,7 @@ def calculate_precision(
             # True positive: The predicted box matches a gt box with an IoU above the threshold.
             tp += 1
             # Remove the matched GT box
-            gts[best_match_gt_idx] = -1
+            gts[best_match_gt_idx][0] = -1
 
         else:
             # No match
@@ -139,7 +139,7 @@ def calculate_precision(
             fp += 1
 
     # False negative: indicates a gt box had no associated predicted box.
-    fn = (gts.sum(axis=1) > 0).sum()
+    fn = (np.sum(gts, axis=1) > 0).sum()
 
     return tp / (tp + fp + fn)
 
@@ -147,7 +147,7 @@ def calculate_precision(
 def calculate_image_precision(
         gts: List[List[Union[int, float]]],
         preds: List[List[Union[int, float]]],
-        thresholds: float = (0.5, ),
+        thresholds: List[float],
         form: str = 'coco'
 ) -> float:
     """Calculates image precision.
@@ -163,7 +163,6 @@ def calculate_image_precision(
     image_precision = 0.0
     
     ious = np.ones((len(gts), len(preds))) * -1
-    # ious = None
 
     for threshold in thresholds:
         precision_at_threshold = calculate_precision(gts.copy(), preds, threshold=threshold,
