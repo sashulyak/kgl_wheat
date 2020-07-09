@@ -10,16 +10,19 @@ from kgl_wheat.efficientdet.model import efficientdet
 from kgl_wheat.metric import calculate_image_precision
 
 
-def postprocess_boxes(boxes, height, width):
-    c_boxes = boxes.copy()
-    c_boxes[:, 0] = np.clip(c_boxes[:, 0], 0, width - 1)
-    c_boxes[:, 1] = np.clip(c_boxes[:, 1], 0, height - 1)
-    c_boxes[:, 2] = np.clip(c_boxes[:, 2], 0, width - 1)
-    c_boxes[:, 3] = np.clip(c_boxes[:, 3], 0, height - 1)
+def postprocess_bboxes(bboxes, height, width):
+    bboxes_preprocessed = []
+    for image_bboxes in bboxes:
+        c_boxes = image_bboxes.copy()
+        c_boxes[:, 0] = np.clip(c_boxes[:, 0], 0, width - 1)
+        c_boxes[:, 1] = np.clip(c_boxes[:, 1], 0, height - 1)
+        c_boxes[:, 2] = np.clip(c_boxes[:, 2], 0, width - 1)
+        c_boxes[:, 3] = np.clip(c_boxes[:, 3], 0, height - 1)
 
-    c_boxes[:, 2] = c_boxes[:, 2] - c_boxes[:, 0]
-    c_boxes[:, 3] = c_boxes[:, 3] - c_boxes[:, 1]
-    return c_boxes
+        c_boxes[:, 2] = c_boxes[:, 2] - c_boxes[:, 0]
+        c_boxes[:, 3] = c_boxes[:, 3] - c_boxes[:, 1]
+        bboxes_preprocessed.append(c_boxes)
+    return np.array(bboxes_preprocessed)
 
 
 if __name__ == '__main__':
@@ -58,12 +61,13 @@ if __name__ == '__main__':
 
     pred_bboxes, pred_scores, pred_labels = np.squeeze(pred_bboxes), np.squeeze(pred_scores), np.squeeze(pred_labels)
 
-    pred_bboxes = postprocess_boxes(boxes=pred_bboxes, height=config.IMAGE_SIZE, width=config.IMAGE_SIZE)
+    pred_bboxes = postprocess_bboxes(bboxes=pred_bboxes, height=config.IMAGE_SIZE, width=config.IMAGE_SIZE)
 
     indices = np.where(pred_scores[:] > config.SCORE_THRESHOLD)[0]
     pred_bboxes = pred_bboxes[indices]
 
     precisions = []
+
     for image_val_bboxes, image_pred_bboxes in tqdm(zip(val_bboxes, pred_bboxes), total=len(val_bboxes)):
         precision = calculate_image_precision(
             gts=image_val_bboxes,
@@ -73,8 +77,6 @@ if __name__ == '__main__':
         )
         precisions.append(precision)
 
-    print('len(precisions):', len(precisions))
-    print('precisions[0]:', precisions[0])
     average_precision = np.mean(precisions)
 
     print('Average validation precision:', average_precision)
