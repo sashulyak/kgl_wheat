@@ -52,7 +52,7 @@ if __name__ == '__main__':
         num_classes=1,
         weighted_bifpn=True,
         freeze_bn=True,
-        score_threshold=0.7
+        score_threshold=config.SCORE_THRESHOLD
     )
 
     prediction_model.load_weights(config.MODEL_WEIGHTS_PATH, by_name=True)
@@ -63,15 +63,30 @@ if __name__ == '__main__':
 
     pred_bboxes = postprocess_bboxes(bboxes=pred_bboxes, height=config.IMAGE_SIZE, width=config.IMAGE_SIZE)
 
-    indices = np.where(pred_scores[:] > config.SCORE_THRESHOLD)[0]
-    pred_bboxes = pred_bboxes[indices]
+    # indices = pred_scores[:] > config.SCORE_THRESHOLD
+    # pred_bboxes = pred_bboxes[indices]
+    # pred_scores = pred_scores[indices]
+
+    pred_bboxes_filtered = []
+    pred_scores_filtered = []
+    for image_pred_bboxes, image_pred_scores in zip(pred_bboxes, pred_scores):
+        indices = image_pred_scores > config.SCORE_THRESHOLD
+        pred_bboxes_filtered.append(image_pred_bboxes[indices])
+        pred_scores_filtered.append(image_pred_scores[indices])
+
+    pred_bboxes = np.array(pred_bboxes_filtered)
+    pred_scores = np.array(pred_scores_filtered)
 
     precisions = []
-
-    for image_val_bboxes, image_pred_bboxes in tqdm(zip(val_bboxes, pred_bboxes), total=len(val_bboxes)):
+    # print('val_bboxes[:1]', val_bboxes[:1])
+    # print('pred_bboxes[:1]', pred_bboxes[:1])
+    # print('pred_scores[:1]', pred_scores[:1])
+    for image_val_bboxes, image_pred_bboxes, image_pred_scores in tqdm(zip(val_bboxes, pred_bboxes, pred_scores), total=len(val_bboxes)):
+        sorted_idx = np.argsort(image_pred_scores)[::-1]
+        image_pred_bboxes_sorted = image_pred_bboxes[sorted_idx]
         precision = calculate_image_precision(
             gts=image_val_bboxes,
-            preds=image_pred_bboxes,
+            preds=image_pred_bboxes_sorted,
             thresholds=[0.5, 0.55, 0.6, 0.65, 0.7, 0.75],
             form='coco'
         )
