@@ -35,3 +35,11 @@ wget -P ./weights https://github.com/Callidior/keras-applications/releases/downl
 ```bash
 CUDA_VISIBLE_DEVICES="0" poetry run python kgl_wheat/train.py
 ```
+
+### Run evaluation script
+
+I used one NVIDIA GeForce 1080ti GPU for evaluation as well.
+
+```bash
+CUDA_VISIBLE_DEVICES="0" poetry run python kgl_wheat/evaluate.py
+```
