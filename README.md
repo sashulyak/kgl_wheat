@@ -43,3 +43,10 @@ I used one NVIDIA GeForce 1080ti GPU for evaluation as well.
 ```bash
 CUDA_VISIBLE_DEVICES="0" poetry run python kgl_wheat/evaluate.py
 ```
+
+
+### Run visualization
+
+```bash
+poetry run jupyter notebook --ip 127.0.0.1
+```

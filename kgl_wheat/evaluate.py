@@ -4,25 +4,10 @@ from tensorflow.keras import models
 from tqdm import tqdm
 
 from kgl_wheat import config
-from kgl_wheat.train import read_train_csv, get_max_bboxes, get_train_val_split
 from kgl_wheat.dataset import get_dataset
 from kgl_wheat.efficientdet.model import efficientdet
 from kgl_wheat.metric import calculate_image_precision
-
-
-def postprocess_bboxes(bboxes, height, width):
-    bboxes_preprocessed = []
-    for image_bboxes in bboxes:
-        c_boxes = image_bboxes.copy()
-        c_boxes[:, 0] = np.clip(c_boxes[:, 0], 0, width - 1)
-        c_boxes[:, 1] = np.clip(c_boxes[:, 1], 0, height - 1)
-        c_boxes[:, 2] = np.clip(c_boxes[:, 2], 0, width - 1)
-        c_boxes[:, 3] = np.clip(c_boxes[:, 3], 0, height - 1)
-
-        c_boxes[:, 2] = c_boxes[:, 2] - c_boxes[:, 0]
-        c_boxes[:, 3] = c_boxes[:, 3] - c_boxes[:, 1]
-        bboxes_preprocessed.append(c_boxes)
-    return np.array(bboxes_preprocessed)
+from kgl_wheat.utils import postprocess_bboxes, read_train_csv, get_train_val_split
 
 
 if __name__ == '__main__':
@@ -63,10 +48,6 @@ if __name__ == '__main__':
 
     pred_bboxes = postprocess_bboxes(bboxes=pred_bboxes, height=config.IMAGE_SIZE, width=config.IMAGE_SIZE)
 
-    # indices = pred_scores[:] > config.SCORE_THRESHOLD
-    # pred_bboxes = pred_bboxes[indices]
-    # pred_scores = pred_scores[indices]
-
     pred_bboxes_filtered = []
     pred_scores_filtered = []
     for image_pred_bboxes, image_pred_scores in zip(pred_bboxes, pred_scores):
@@ -78,9 +59,7 @@ if __name__ == '__main__':
     pred_scores = np.array(pred_scores_filtered)
 
     precisions = []
-    # print('val_bboxes[:1]', val_bboxes[:1])
-    # print('pred_bboxes[:1]', pred_bboxes[:1])
-    # print('pred_scores[:1]', pred_scores[:1])
+
     for image_val_bboxes, image_pred_bboxes, image_pred_scores in tqdm(zip(val_bboxes, pred_bboxes, pred_scores), total=len(val_bboxes)):
         sorted_idx = np.argsort(image_pred_scores)[::-1]
         image_pred_bboxes_sorted = image_pred_bboxes[sorted_idx]
