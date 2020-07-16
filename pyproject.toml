@@ -15,6 +15,7 @@ pandas = "^1.0.4"
 opencv-python = "^4.2.0"
 keras-applications = "^1.0.8"
 tqdm = "^4.46.1"
+joblib = "^0.16.0"
 
 [tool.poetry.dev-dependencies]
 jupyter = "^1.0.0"
