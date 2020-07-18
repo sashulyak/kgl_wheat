@@ -22,29 +22,15 @@
 # Code of this model implementation is mostly written by
 # Björn Barz ([@Callidior](https://github.com/Callidior))
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import os
-import json
 import math
 import string
 import collections
-import numpy as np
 
 from six.moves import xrange
+from tensorflow.keras.applications.imagenet_utils import preprocess_input as _preprocess_input
+from tensorflow.keras import backend, layers, models, utils
 from keras_applications.imagenet_utils import _obtain_input_shape
-from keras_applications.imagenet_utils import decode_predictions
-from keras_applications.imagenet_utils import preprocess_input as _preprocess_input
-
-from kgl_wheat.efficientdet.utils import get_submodules_from_kwargs
-from kgl_wheat.efficientdet.layers import BatchNormalization
-
-backend = None
-layers = None
-models = None
-keras_utils = None
 
 
 BASE_WEIGHTS_PATH = (
@@ -139,28 +125,23 @@ def preprocess_input(x, **kwargs):
     return _preprocess_input(x, mode='torch', **kwargs)
 
 
-def get_swish(**kwargs):
-    backend, layers, models, keras_utils = get_submodules_from_kwargs(kwargs)
+def swish(x):
+    """Swish activation function: x * sigmoid(x).
+    Reference: [Searching for Activation Functions](https://arxiv.org/abs/1710.05941)
+    """
 
-    def swish(x):
-        """Swish activation function: x * sigmoid(x).
-        Reference: [Searching for Activation Functions](https://arxiv.org/abs/1710.05941)
-        """
+    if backend.backend() == 'tensorflow':
+        try:
+            # The native TF implementation has a more
+            # memory-efficient gradient implementation
+            return backend.tf.nn.swish(x)
+        except AttributeError:
+            pass
 
-        if backend.backend() == 'tensorflow':
-            try:
-                # The native TF implementation has a more
-                # memory-efficient gradient implementation
-                return backend.tf.nn.swish(x)
-            except AttributeError:
-                pass
-
-        return x * backend.sigmoid(x)
-
-    return swish
+    return x * backend.sigmoid(x)
 
 
-def get_dropout(**kwargs):
+class FixedDropout(layers.Dropout):
     """Wrapper over custom dropout. Fix problem of ``None`` shape for tf.keras.
     It is not possible to define FixedDropout class as global object,
     because we do not have modules for inheritance at first time.
@@ -168,19 +149,15 @@ def get_dropout(**kwargs):
     Issue:
         https://github.com/tensorflow/tensorflow/issues/30946
     """
-    backend, layers, models, keras_utils = get_submodules_from_kwargs(kwargs)
+    def _get_noise_shape(self, inputs):
+        if self.noise_shape is None:
+            return self.noise_shape
 
-    class FixedDropout(layers.Dropout):
-        def _get_noise_shape(self, inputs):
-            if self.noise_shape is None:
-                return self.noise_shape
+        symbolic_shape = backend.shape(inputs)
+        noise_shape = [symbolic_shape[axis] if shape is None else shape
+                        for axis, shape in enumerate(self.noise_shape)]
+        return tuple(noise_shape)
 
-            symbolic_shape = backend.shape(inputs)
-            noise_shape = [symbolic_shape[axis] if shape is None else shape
-                           for axis, shape in enumerate(self.noise_shape)]
-            return tuple(noise_shape)
-
-    return FixedDropout
 
 
 def round_filters(filters, width_coefficient, depth_divisor):
@@ -207,14 +184,6 @@ def mb_conv_block(inputs, block_args, activation, drop_rate=None, prefix='', fre
     has_se = (block_args.se_ratio is not None) and (0 < block_args.se_ratio <= 1)
     bn_axis = 3 if backend.image_data_format() == 'channels_last' else 1
 
-    # workaround over non working dropout with None in noise_shape in tf.keras
-    Dropout = get_dropout(
-        backend=backend,
-        layers=layers,
-        models=models,
-        utils=keras_utils
-    )
-
     # Expansion phase
     filters = block_args.input_filters * block_args.expand_ratio
     if block_args.expand_ratio != 1:
@@ -223,7 +192,7 @@ def mb_conv_block(inputs, block_args, activation, drop_rate=None, prefix='', fre
                           use_bias=False,
                           kernel_initializer=CONV_KERNEL_INITIALIZER,
                           name=prefix + 'expand_conv')(inputs)
-        # x = BatchNormalization(freeze=freeze_bn, axis=bn_axis, name=prefix + 'expand_bn')(x)
+
         x = layers.BatchNormalization(axis=bn_axis, name=prefix + 'expand_bn')(x)
         x = layers.Activation(activation, name=prefix + 'expand_activation')(x)
     else:
@@ -236,7 +205,7 @@ def mb_conv_block(inputs, block_args, activation, drop_rate=None, prefix='', fre
                                use_bias=False,
                                depthwise_initializer=CONV_KERNEL_INITIALIZER,
                                name=prefix + 'dwconv')(x)
-    # x = BatchNormalization(freeze=freeze_bn, axis=bn_axis, name=prefix + 'bn')(x)
+
     x = layers.BatchNormalization(axis=bn_axis, name=prefix + 'bn')(x)
     x = layers.Activation(activation, name=prefix + 'activation')(x)
 
@@ -277,13 +246,13 @@ def mb_conv_block(inputs, block_args, activation, drop_rate=None, prefix='', fre
                       use_bias=False,
                       kernel_initializer=CONV_KERNEL_INITIALIZER,
                       name=prefix + 'project_conv')(x)
-    # x = BatchNormalization(freeze=freeze_bn, axis=bn_axis, name=prefix + 'project_bn')(x)
+
     x = layers.BatchNormalization(axis=bn_axis, name=prefix + 'project_bn')(x)
     if block_args.id_skip and all(
             s == 1 for s in block_args.strides
     ) and block_args.input_filters == block_args.output_filters:
         if drop_rate and (drop_rate > 0):
-            x = Dropout(drop_rate,
+            x = FixedDropout(drop_rate,
                         noise_shape=(None, 1, 1, 1),
                         name=prefix + 'drop')(x)
         x = layers.add([x, inputs], name=prefix + 'add')
@@ -351,8 +320,6 @@ def EfficientNet(width_coefficient,
         ValueError: in case of invalid argument for `weights`,
             or invalid input shape.
     """
-    global backend, layers, models, keras_utils
-    backend, layers, models, keras_utils = get_submodules_from_kwargs(kwargs)
     features = []
     if not (weights in {'imagenet', None} or os.path.exists(weights)):
         raise ValueError('The `weights` argument should be either '
@@ -385,7 +352,6 @@ def EfficientNet(width_coefficient,
             img_input = input_tensor
 
     bn_axis = 3 if backend.image_data_format() == 'channels_last' else 1
-    activation = get_swish(**kwargs)
 
     # Build stem
     x = img_input
@@ -395,9 +361,9 @@ def EfficientNet(width_coefficient,
                       use_bias=False,
                       kernel_initializer=CONV_KERNEL_INITIALIZER,
                       name='stem_conv')(x)
-    # x = BatchNormalization(freeze=freeze_bn, axis=bn_axis, name='stem_bn')(x)
+
     x = layers.BatchNormalization(axis=bn_axis, name='stem_bn')(x)
-    x = layers.Activation(activation, name='stem_activation')(x)
+    x = layers.Activation(swish, name='stem_activation')(x)
     # Build blocks
     num_blocks_total = sum(block_args.num_repeat for block_args in blocks_args)
     block_num = 0
@@ -414,7 +380,7 @@ def EfficientNet(width_coefficient,
         # The first block needs to take care of stride and filter size increase.
         drop_rate = drop_connect_rate * float(block_num) / num_blocks_total
         x = mb_conv_block(x, block_args,
-                          activation=activation,
+                          activation=swish,
                           drop_rate=drop_rate,
                           prefix='block{}a_'.format(idx + 1),
                           freeze_bn=freeze_bn
@@ -432,7 +398,7 @@ def EfficientNet(width_coefficient,
                     string.ascii_lowercase[bidx + 1]
                 )
                 x = mb_conv_block(x, block_args,
-                                  activation=activation,
+                                  activation=swish,
                                   drop_rate=drop_rate,
                                   prefix=block_prefix,
                                   freeze_bn=freeze_bn
