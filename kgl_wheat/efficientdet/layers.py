@@ -2,6 +2,25 @@ from tensorflow import keras
 import tensorflow as tf
 
 
+
+class FixedDropout(keras.layers.Dropout):
+    """Wrapper over custom dropout. Fix problem of ``None`` shape for tf.keras.
+    It is not possible to define FixedDropout class as global object,
+    because we do not have modules for inheritance at first time.
+
+    Issue:
+        https://github.com/tensorflow/tensorflow/issues/30946
+    """
+    def _get_noise_shape(self, inputs):
+        if self.noise_shape is None:
+            return self.noise_shape
+
+        symbolic_shape = keras.backend.shape(inputs)
+        noise_shape = [symbolic_shape[axis] if shape is None else shape
+                        for axis, shape in enumerate(self.noise_shape)]
+        return tuple(noise_shape)
+
+
 class BatchNormalization(keras.layers.BatchNormalization):
     """
     Identical to keras.layers.BatchNormalization, but adds the option to freeze parameters.

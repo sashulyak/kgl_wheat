@@ -29,8 +29,10 @@ import collections
 
 from six.moves import xrange
 from tensorflow.keras.applications.imagenet_utils import preprocess_input as _preprocess_input
-from tensorflow.keras import backend, layers, models, utils
+from tensorflow.keras import backend, layers
 from keras_applications.imagenet_utils import _obtain_input_shape
+
+from kgl_wheat.efficientdet.layers import FixedDropout
 
 
 BASE_WEIGHTS_PATH = (
@@ -139,25 +141,6 @@ def swish(x):
             pass
 
     return x * backend.sigmoid(x)
-
-
-class FixedDropout(layers.Dropout):
-    """Wrapper over custom dropout. Fix problem of ``None`` shape for tf.keras.
-    It is not possible to define FixedDropout class as global object,
-    because we do not have modules for inheritance at first time.
-
-    Issue:
-        https://github.com/tensorflow/tensorflow/issues/30946
-    """
-    def _get_noise_shape(self, inputs):
-        if self.noise_shape is None:
-            return self.noise_shape
-
-        symbolic_shape = backend.shape(inputs)
-        noise_shape = [symbolic_shape[axis] if shape is None else shape
-                        for axis, shape in enumerate(self.noise_shape)]
-        return tuple(noise_shape)
-
 
 
 def round_filters(filters, width_coefficient, depth_divisor):
