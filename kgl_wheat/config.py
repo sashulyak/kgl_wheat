@@ -12,7 +12,7 @@ EFFNET_WEIGHTS_PATH = os.path.join(
 )
 
 MODEL_WEIGHTS_PATH = os.path.join(BASE_DIR, 'weights/kgl_wheat_model.h5')
-MODEL_WEIGHTS_PRED_PATH = os.path.join(BASE_DIR, 'weights/kgl_wheat_model_pred.joblib')
+MODEL_WEIGHTS_PRED_PATH = os.path.join(BASE_DIR, 'weights/kgl_wheat_model_pred.h5')
 
 IMAGE_SIZE = 1024
 BATCH_SIZE = 4

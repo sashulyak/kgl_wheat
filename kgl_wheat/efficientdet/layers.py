@@ -26,7 +26,7 @@ class BatchNormalization(keras.layers.BatchNormalization):
     Identical to keras.layers.BatchNormalization, but adds the option to freeze parameters.
     """
 
-    def __init__(self, freeze, *args, **kwargs):
+    def __init__(self, freeze=True, *args, **kwargs):
         self.freeze = freeze
         super(BatchNormalization, self).__init__(*args, **kwargs)
 
@@ -42,7 +42,7 @@ class BatchNormalization(keras.layers.BatchNormalization):
 
     def get_config(self):
         config = super(BatchNormalization, self).get_config()
-        config.update({'freeze': self.freeze})
+        config['freeze'] = self.freeze
         return config
 
 
@@ -70,9 +70,7 @@ class wBiFPNAdd(keras.layers.Layer):
 
     def get_config(self):
         config = super(wBiFPNAdd, self).get_config()
-        config.update({
-            'epsilon': self.epsilon
-        })
+        config['epsilon'] = self.epsilon
         return config
 
 
