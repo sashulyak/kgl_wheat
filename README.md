@@ -50,3 +50,9 @@ CUDA_VISIBLE_DEVICES="0" poetry run python kgl_wheat/evaluate.py
 ```bash
 poetry run jupyter notebook --ip 127.0.0.1
 ```
+
+### TODOs
+- Make saved model loadeable with keras.models.load_model
+- Add kaggle submit script
+- Move data preparation and train/val split to separate script
+- Add augmentations
