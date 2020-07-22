@@ -30,6 +30,7 @@ import collections
 from six.moves import xrange
 from tensorflow.keras.applications.imagenet_utils import preprocess_input as _preprocess_input
 from tensorflow.keras import backend, layers
+from tensorflow.keras.activations import swish
 from keras_applications.imagenet_utils import _obtain_input_shape
 
 from kgl_wheat.efficientdet.layers import FixedDropout
@@ -127,22 +128,6 @@ def preprocess_input(x, **kwargs):
     return _preprocess_input(x, mode='torch', **kwargs)
 
 
-def swish(x):
-    """Swish activation function: x * sigmoid(x).
-    Reference: [Searching for Activation Functions](https://arxiv.org/abs/1710.05941)
-    """
-
-    if backend.backend() == 'tensorflow':
-        try:
-            # The native TF implementation has a more
-            # memory-efficient gradient implementation
-            return backend.tf.nn.swish(x)
-        except AttributeError:
-            pass
-
-    return x * backend.sigmoid(x)
-
-
 def round_filters(filters, width_coefficient, depth_divisor):
     """Round number of filters based on width multiplier."""
 
@@ -213,14 +198,6 @@ def mb_conv_block(inputs, block_args, activation, drop_rate=None, prefix='', fre
                                   use_bias=True,
                                   kernel_initializer=CONV_KERNEL_INITIALIZER,
                                   name=prefix + 'se_expand')(se_tensor)
-        if backend.backend() == 'theano':
-            # For the Theano backend, we have to explicitly make
-            # the excitation weights broadcastable.
-            pattern = ([True, True, True, False] if backend.image_data_format() == 'channels_last'
-                       else [True, False, True, True])
-            se_tensor = layers.Lambda(
-                lambda x: backend.pattern_broadcast(x, pattern),
-                name=prefix + 'se_broadcast')(se_tensor)
         x = layers.multiply([x, se_tensor], name=prefix + 'se_excite')
 
     # Output phase

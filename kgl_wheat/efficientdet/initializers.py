@@ -29,9 +29,12 @@ class PriorProbability(keras.initializers.Initializer):
         self.probability = probability
 
     def get_config(self):
-        return {
-            'probability': self.probability
-        }
+        config = super(PriorProbability, self).get_config()
+        config['probability'] = self.probability
+        return config
+        # return {
+        #     'probability': self.probability
+        # }
 
     def __call__(self, shape, dtype=None):
         # set bias to -log((1 - p)/p) for foreground
