@@ -2,7 +2,6 @@ from tensorflow import keras
 import tensorflow as tf
 
 
-
 class FixedDropout(keras.layers.Dropout):
     """Wrapper over custom dropout. Fix problem of ``None`` shape for tf.keras.
     It is not possible to define FixedDropout class as global object,
@@ -19,7 +18,6 @@ class FixedDropout(keras.layers.Dropout):
         noise_shape = [symbolic_shape[axis] if shape is None else shape
                         for axis, shape in enumerate(self.noise_shape)]
         return tuple(noise_shape)
-
 
 
 class wBiFPNAdd(keras.layers.Layer):
